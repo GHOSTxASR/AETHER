@@ -193,7 +193,9 @@ class KeptFiles internal constructor(private val context: Context) {
             title.isEmpty() -> artist
             else -> "$artist - $title"
         }.ifEmpty { track.id.key }
-        return "${stem.take(120).trimEnd()}.$extension"
+        // Cut short, but never between the two halves of an emoji or other character outside the BMP.
+        val short = stem.take(120).let { if (it.lastOrNull()?.isHighSurrogate() == true) it.dropLast(1) else it }
+        return "${short.trimEnd()}.$extension"
     }
 
     private fun read(): Map<MediaId, Entry> = runCatching {

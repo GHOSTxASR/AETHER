@@ -19,7 +19,8 @@ const reloader = `<script>new EventSource('/__live').onmessage=e=>{
   else location.reload()}</script>`
 
 createServer(async (req, res) => {
-  const path = decodeURIComponent(new URL(req.url, 'http://x').pathname)
+  let path
+  try { path = decodeURIComponent(new URL(req.url, 'http://x').pathname) } catch { res.writeHead(400).end('Bad request'); return }
   if (path === '/__live') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' })
     res.write('retry: 400\n\n')
