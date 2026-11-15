@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Your own sources: an HLS stream was checked for encryption only in the first playlist its master named, so a keyed variant or audio rendition the player might choose could slip past AETHER's open-media rule. Every playlist a master names is now read, and one that can't be is refused.
+- Your own sources: a plain HLS playlist had its first audio segment downloaded as if it were a playlist, and a song was refused when that segment didn't answer.
+- Your own sources: a stream answer pointing anywhere but the web now falls back to the song's own address from its search row, instead of failing the song.
+
 ## [2.3.0] - 2026-11-11
 
 ### Fixed

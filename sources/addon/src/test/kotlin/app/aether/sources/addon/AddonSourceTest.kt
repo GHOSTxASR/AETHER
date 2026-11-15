@@ -26,6 +26,8 @@ class AddonSourceTest {
         var search: Pair<Int, String> = 200 to """{"tracks":[{"id":"t1","title":"Hello","artist":"Adele","duration":295,"artworkURL":"https://img/x.jpg","streamURL":"https://cdn/row.flac"}]}"""
         var stream: Pair<Int, String> = 200 to """{"url":"https://cdn/asked.flac","codec":"flac","sampleRate":44100,"bitDepth":16}"""
         var dropFirst = 0
+        /** Anything else the addon serves, by path: playlists, for the open-media checks. */
+        val files = mutableMapOf<String, String>()
 
         val http: OkHttpClient = OkHttpClient.Builder().addInterceptor { chain ->
             val url = chain.request().url
@@ -35,7 +37,7 @@ class AddonSourceTest {
                 url.encodedPath.endsWith("/manifest.json") -> 200 to manifest
                 url.encodedPath.endsWith("/search") -> search
                 url.encodedPath.contains("/stream/") -> stream
-                else -> 404 to "{}"
+                else -> files[url.encodedPath]?.let { 200 to it } ?: (404 to "{}")
             }
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(code).message("x")
                 .body(body.toResponseBody("application/json".toMediaType())).build()
@@ -86,6 +88,13 @@ class AddonSourceTest {
         assertEquals("https://cdn/row.flac", (s.stream(row.id, false) as Outcome.Ok).value.url)
     }
 
+    @Test fun `the row's own address is the fallback when stream gives one that isn't on the web`() = runBlocking {
+        val addon = Addon().apply { stream = 200 to """{"url":"file:///data/data/app.aether/files/x.flac"}""" }
+        val s = source(addon)
+        val row = s.found().single()
+        assertEquals("https://cdn/row.flac", (s.stream(row.id, false) as Outcome.Ok).value.url)
+    }
+
     @Test fun `an addon that only searches plays from its rows`() = runBlocking {
         val addon = Addon("""{"id":"x","name":"Rows","resources":["search"]}""")
         val s = source(addon)
@@ -127,6 +136,51 @@ class AddonSourceTest {
         assertNull(AddonProtocol.errorText("<html>no</html>".toByteArray()))
         assertNotNull(AddonProtocol.errorText("""{"detail":"why"}""".toByteArray()))
     }
+
+    private fun hls(addon: Addon): Outcome<app.aether.core.model.Stream> {
+        addon.stream = 200 to """{"url":"https://cdn.example/hls/master.m3u8","manifest":"hls"}"""
+        val s = source(addon)
+        return runBlocking { s.stream(s.found().single().id, false) }
+    }
+
+    @Test fun `an HLS master with any keyed variant is refused, not only when the first one is`() {
+        val addon = Addon()
+        addon.files["/hls/master.m3u8"] = m3u8("#EXT-X-STREAM-INF:BANDWIDTH=128000", "low.m3u8", "#EXT-X-STREAM-INF:BANDWIDTH=320000", "high.m3u8")
+        addon.files["/hls/low.m3u8"] = m3u8("#EXTINF:10,", "a.aac")
+        addon.files["/hls/high.m3u8"] = m3u8("""#EXT-X-KEY:METHOD=AES-128,URI="https://keys.example/k"""", "#EXTINF:10,", "a.aac")
+        assertIs<Outcome.Err>(hls(addon))
+        assertTrue(addon.asked.contains("/hls/high.m3u8"))
+    }
+
+    @Test fun `an HLS master's keyed audio rendition is refused`() {
+        val addon = Addon()
+        addon.files["/hls/master.m3u8"] = m3u8(
+            """#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="Main",URI="audio.m3u8"""",
+            """#EXT-X-STREAM-INF:BANDWIDTH=320000,AUDIO="a"""",
+            "video.m3u8",
+        )
+        addon.files["/hls/video.m3u8"] = m3u8("#EXTINF:10,", "v.ts")
+        addon.files["/hls/audio.m3u8"] = m3u8("""#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://k"""", "#EXTINF:10,", "a.aac")
+        assertIs<Outcome.Err>(hls(addon))
+    }
+
+    @Test fun `an open HLS master plays, every variant read`() {
+        val addon = Addon()
+        addon.files["/hls/master.m3u8"] = m3u8("#EXT-X-STREAM-INF:BANDWIDTH=128000", "low.m3u8", "#EXT-X-STREAM-INF:BANDWIDTH=320000", "high.m3u8")
+        addon.files["/hls/low.m3u8"] = m3u8("#EXTINF:10,", "a.aac")
+        addon.files["/hls/high.m3u8"] = m3u8("#EXT-X-KEY:METHOD=NONE", "#EXTINF:10,", "a.aac")
+        assertIs<Outcome.Ok<*>>(hls(addon))
+        assertTrue(addon.asked.containsAll(listOf("/hls/low.m3u8", "/hls/high.m3u8")))
+    }
+
+    @Test fun `an open HLS media playlist plays without its segments being fetched`() {
+        val addon = Addon()
+        addon.files["/hls/master.m3u8"] = m3u8("#EXT-X-TARGETDURATION:10", "#EXTINF:10,", "segment0.aac")
+        assertIs<Outcome.Ok<*>>(hls(addon))
+        assertFalse(addon.asked.any { it.endsWith(".aac") })
+    }
+
+    private fun m3u8(vararg lines: String) = (listOf("#EXTM3U") + lines).joinToString("\n", postfix = "\n")
 
     private companion object {
         const val MANIFEST = """{"id":"dev.test","name":"Test","resources":["search","stream"],"settings":[{"key":"quality","default":"LOSSLESS","options":[{"value":"LOSSLESS"},{"value":"HIGH"}]}]}"""
