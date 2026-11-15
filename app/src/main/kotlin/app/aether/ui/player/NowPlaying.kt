@@ -621,7 +621,7 @@ private fun quality(heard: HeardFormat?): String? {
     val parts = buildList {
         heard.codec?.let { add(it.replace("MP4A-LATM", "AAC").replace("MP4A", "AAC")) }
         if (heard.lossless && heard.bitDepth != null) add("${heard.bitDepth}-bit")
-        heard.sampleRateHz?.let { add("%.1f kHz".format(it / 1000f).replace(".0 ", " ")) }
+        heard.sampleRateHz?.let { add(String.format(java.util.Locale.ROOT, "%.1f kHz", it / 1000f).replace(".0 ", " ")) }
         if (!heard.lossless) heard.bitrateKbps?.let { add("$it kbps") }
     }
     return parts.takeIf { it.isNotEmpty() }?.joinToString("   ")

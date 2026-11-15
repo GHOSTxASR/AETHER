@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Timed lyrics written into a kept song, and lyrics read from an MP3's SYLT tag, were stamped in the phone's own digits on phones set to Arabic, Persian, Marathi, Bengali and other languages that write numbers their own way, so the words came back untimed or not at all. Stamps are now always written in ASCII digits.
+- A music file whose tags claim an impossible size is passed by cleanly when its lyrics are read.
+- Now Playing's sample rate reads "48 kHz", not "48,0 kHz", on phones that write decimals with a comma.
+- A kept song whose name is cut short no longer ends on half of an emoji.
+- The website's local server (`site/dev.mjs`) no longer stops on a malformed address.
+
 ## [2.3.0] - 2026-11-11
 
 ### Fixed
