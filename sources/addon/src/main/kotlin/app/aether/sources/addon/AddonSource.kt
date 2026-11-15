@@ -149,7 +149,7 @@ class AddonSource(
         if (manifest.canStream) {
             val url = endpoint(listOf("stream", own)) ?: return Outcome.Err(SourceError.NotFound("address"))
             when (val r = fetch(url) { AddonProtocol.stream(it) }) {
-                is Outcome.Ok -> if (r.value.error == null && r.value.url.isNotBlank()) asked = r.value
+                is Outcome.Ok -> if (r.value.error == null && isWebAddress(r.value.url)) asked = r.value
                     else miss = Outcome.Err(SourceError.NotPlayable(r.value.error?.take(160) ?: "no stream"))
                 is Outcome.Err -> miss = r
             }
@@ -157,7 +157,7 @@ class AddonSource(
         val answer: AddonStream = asked ?: given?.let { AddonStream(it, null, null, null, false, emptyMap(), null) }
             ?: return miss ?: Outcome.Err(SourceError.NotPlayable("no stream"))
         if (answer.encrypted) return Outcome.Err(SourceError.NotPlayable("This source's stream is encrypted, and AETHER plays open media only."))
-        if (!answer.url.startsWith("https://") && !answer.url.startsWith("http://")) return Outcome.Err(SourceError.NotPlayable("The source gave no address to play."))
+        if (!isWebAddress(answer.url)) return Outcome.Err(SourceError.NotPlayable("The source gave no address to play."))
         val manifest = when (answer.manifest) {
             "dash" -> Stream.Manifest.DASH
             "hls" -> Stream.Manifest.HLS
@@ -195,15 +195,38 @@ class AddonSource(
             Stream.Manifest.DASH -> "ContentProtection" in text || "cenc:" in text
             Stream.Manifest.HLS -> {
                 if (keyed(text)) return true
-                // A master playlist names its media playlists; the keys are in those.
-                val media = text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() && !it.startsWith("#") } ?: return false
-                val next = url.toHttpUrlOrNull()?.resolve(media)?.toString() ?: return true
-                val inner = text(next, headers) ?: return true
-                keyed(inner)
+                // A media playlist names segments, not playlists: its keys, if any, were in it.
+                if (!isMasterPlaylist(text)) return false
+                // A master playlist names its media playlists, any of which the player may choose
+                // (and its audio renditions); the keys are in those, so every one is read.
+                val base = url.toHttpUrlOrNull() ?: return true
+                val media = mediaPlaylists(text)
+                if (media.isEmpty() || media.size > MAX_MEDIA_PLAYLISTS) return true
+                media.any { uri ->
+                    val next = base.resolve(uri)?.toString() ?: return true
+                    val inner = text(next, headers) ?: return true
+                    keyed(inner)
+                }
             }
             Stream.Manifest.NONE -> false
         }
     }
+
+    /** Only the web: an addon's answer never points the player at the phone's own files or apps. */
+    private fun isWebAddress(url: String): Boolean = url.startsWith("https://") || url.startsWith("http://")
+
+    private fun isMasterPlaylist(m3u8: String): Boolean =
+        m3u8.lineSequence().any { it.trim().startsWith("#EXT-X-STREAM-INF") || it.trim().startsWith("#EXT-X-MEDIA:") }
+
+    /** Every playlist a master names: each variant's line, and each rendition's `URI`. */
+    private fun mediaPlaylists(master: String): List<String> = master.lineSequence().map { it.trim() }.flatMap { line ->
+        when {
+            line.isEmpty() -> emptySequence()
+            line.startsWith("#EXT-X-MEDIA:") -> HLS_URI.find(line)?.groupValues?.get(1)?.let { sequenceOf(it) } ?: emptySequence()
+            line.startsWith("#") -> emptySequence()
+            else -> sequenceOf(line)
+        }
+    }.distinct().toList()
 
     private fun keyed(m3u8: String): Boolean = m3u8.lineSequence().any { line ->
         val l = line.trim()
@@ -378,6 +401,11 @@ class AddonSource(
         const val REST_MS = 30_000L
         const val REST_LONG_MS = 15 * 60_000L
         const val MAX_MANIFEST_BYTES = 512L * 1024
+
+        /** A master naming more playlists than this can't all be read, and is refused. */
+        const val MAX_MEDIA_PLAYLISTS = 16
+
+        private val HLS_URI = Regex("""URI="([^"]+)"""")
     }
 }
 
