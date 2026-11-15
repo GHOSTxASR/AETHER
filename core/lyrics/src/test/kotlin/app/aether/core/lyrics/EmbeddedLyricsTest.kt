@@ -2,6 +2,7 @@ package app.aether.core.lyrics
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -71,5 +72,30 @@ class EmbeddedLyricsTest {
         val back = assertIs<Lyrics.Synced>(EmbeddedLyrics.lyrics(written)).lines.single()
         assertEquals("Hello world", back.text)
         assertEquals(listOf(1_000L, 1_600L), back.words.map { it.startMs })
+    }
+
+    @Test fun `stamps are written in ASCII digits whatever the phone's language`() {
+        val before = Locale.getDefault()
+        try {
+            for (tag in listOf("ar-EG", "fa-IR", "mr-IN", "bn-BD")) {
+                Locale.setDefault(Locale.forLanguageTag(tag))
+                val line = LyricsLine(65_250, "Hello world", words = listOf(LyricsWord(65_250, "Hello"), LyricsWord(66_000, "world")))
+                val written = LrcWriter.write(Lyrics.Synced(listOf(line)))!!
+                assertEquals("[01:05.25]<01:05.25>Hello <01:06.00>world\n", written, tag)
+                val back = assertIs<Lyrics.Synced>(EmbeddedLyrics.lyrics(written), tag).lines.single()
+                assertEquals(listOf(65_250L, 66_000L), back.words.map { it.startMs }, tag)
+            }
+        } finally {
+            Locale.setDefault(before)
+        }
+    }
+
+    @Test fun `a Vorbis comment that claims a huge size is nothing, not an error`() {
+        val block = ByteArrayOutputStream().apply { le32(this, Int.MAX_VALUE); write("test".toByteArray()) }.toByteArray()
+        val file = ByteArrayOutputStream().apply {
+            write("fLaC".toByteArray())
+            write(byteArrayOf(0x84.toByte(), (block.size shr 16).toByte(), (block.size shr 8).toByte(), block.size.toByte())); write(block)
+        }.toByteArray()
+        assertNull(EmbeddedLyrics.raw(ByteArrayInputStream(file)))
     }
 }

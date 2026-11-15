@@ -103,13 +103,13 @@ object EmbeddedLyrics {
             return v
         }
         val vendor = le32() ?: return null
-        if (vendor < 0 || p + vendor > block.size) return null
+        if (vendor < 0 || vendor > block.size - p) return null // a huge claimed size mustn't wrap round
         p += vendor
         val count = le32() ?: return null
         val found = HashMap<String, String>()
         repeat(count.coerceIn(0, 10_000)) {
             val length = le32() ?: return@repeat
-            if (length < 0 || p + length > block.size) return@repeat
+            if (length < 0 || length > block.size - p) return@repeat
             val entry = String(block, p, length, Charsets.UTF_8)
             p += length
             val key = entry.substringBefore('=', "").uppercase()
@@ -141,7 +141,7 @@ object EmbeddedLyrics {
             if (id[0] == '\u0000') break
             val length = if (version == 4) syncsafe(body, p + 4) else be32(body, p + 4)
             val start = p + 10
-            if (length <= 0 || start + length > body.size) break
+            if (length <= 0 || length > body.size - start) break
             val frame = body.copyOfRange(start, start + length)
             when (id) {
                 "USLT" -> if (plain == null) plain = uslt(frame)
@@ -174,15 +174,13 @@ object EmbeddedLyrics {
             val text = decode(f, p, end, enc).orEmpty()
             p = end + if (enc == 1 || enc == 2) 2 else 1
             if (p + 4 > f.size) break
-            val ms = be32(f, p).toLong()
+            val ms = be32(f, p).toLong() and 0xFFFFFFFFL // unsigned, as ID3 writes it
             p += 4
             val clean = text.removePrefix("\n").trimEnd()
-            out.append('[').append(stamp(ms)).append(']').append(clean).append('\n')
+            out.append('[').append(LrcWriter.stamp(ms)).append(']').append(clean).append('\n')
         }
         return out.toString().takeIf { it.isNotBlank() }
     }
-
-    private fun stamp(ms: Long): String = "%02d:%02d.%02d".format(ms / 60_000, (ms / 1000) % 60, (ms % 1000) / 10)
 
     private fun terminator(f: ByteArray, from: Int, enc: Int): Int? {
         val wide = enc == 1 || enc == 2
