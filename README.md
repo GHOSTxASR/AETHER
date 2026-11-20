@@ -6,7 +6,7 @@ Built around the sound. Unlike anything you've used.
 </p>
 
 <p align="center">
-  <a href="https://github.com/GHOSTxASR/AETHER/releases/latest/download/AETHER.v2.3.apk"><img alt="Download the APK" src="https://img.shields.io/badge/Download-APK-ffffff?style=for-the-badge&labelColor=000000" /></a>
+  <a href="https://github.com/GHOSTxASR/AETHER/releases/latest/download/AETHER.v3.0.apk"><img alt="Download the APK" src="https://img.shields.io/badge/Download-APK-ffffff?style=for-the-badge&labelColor=000000" /></a>
   <a href="https://github.com/GHOSTxASR/AETHER/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/GHOSTxASR/AETHER?style=for-the-badge&labelColor=000000&color=ffffff" /></a>
   <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-ffffff?style=for-the-badge&labelColor=000000" /></a>
   <img alt="Android 10 or later" src="https://img.shields.io/badge/Android-10%2B-ffffff?style=for-the-badge&labelColor=000000" />
@@ -34,7 +34,7 @@ It plays all of YouTube Music and your own files through an audio path that repo
 
 ## Download
 
-1. Download **[AETHER v2.3.apk](https://github.com/GHOSTxASR/AETHER/releases/latest/download/AETHER.v2.3.apk)** from the latest release.
+1. Download **[AETHER v3.0.apk](https://github.com/GHOSTxASR/AETHER/releases/latest/download/AETHER.v3.0.apk)** from the latest release.
 2. Open it on your phone. Android asks once to allow installs from your browser or file manager.
 3. Open AETHER and press play.
 
@@ -58,7 +58,9 @@ Needs Android 10 or later. Every release is signed with the same key, so new ver
 
 **The best copy there is.** For a song from YouTube Music, your own sources are asked for the very same recording first, lossless where they have it. When one turns up while the song plays, AETHER goes over to it mid-song, lined up by its sound and handed over in a crossfade you shouldn't hear.
 
-**Songs that meet.** Crossfade of 2 to 12 seconds, never between an album's songs that run into each other.
+**Songs that meet.** Crossfade of 2 to 12 seconds, never between an album's songs that run into each other. Or Automix: each song measured on the phone (tempo, beats, phrases, key, where the voice is) and run into the next the way a DJ would, in time and on the bar, the bass handed over.
+
+**Your playlists, from anywhere.** Bring them in from a file (M3U, CSV, Spotify's data download) or a public Spotify or Apple Music link, each song found as exactly as AETHER can; take any of them out as M3U8 or CSV.
 
 ## Nothing else does this
 
@@ -72,6 +74,8 @@ Needs Android 10 or later. Every release is signed with the same key, so new ver
 
 **A song going into the phone.** Keep a song and its cover lifts off, carries to the foot of the screen and sinks in, and the whole display ripples as it lands.
 
+**And out to the TV.** Cast to any TV or speaker with Google Cast on your Wi-Fi and the music leaves through the top of the screen on the same wave. The phone stays the source: your queue, your volume keys, and one touch brings it back where the TV had got to.
+
 **Lyrics, three ways.** From seven libraries at once, word by word where one has it: a page that's sung, each word lighting as it's sung and a held note glowing; words as a night sky of constellations; or the entire song written as one unbroken line. Korean, Chinese and Japanese come in Latin letters too, worked out on the phone.
 
 **A portrait of how you listen.** Your most played artists as a deck to throw aside, your day as a dial, your genres and habits, all worked out on the phone and shown to nobody else.
@@ -80,14 +84,17 @@ Needs Android 10 or later. Every release is signed with the same key, so new ver
 
 ## Privacy
 
-Your YouTube sign-in is sealed with the Android Keystore, and a card leaves the phone only when you send it. Apart from fetching music, AETHER makes four kinds of request. Each can be turned off in Settings, and none says anything about you.
+Your YouTube sign-in is sealed with the Android Keystore, and a card leaves the phone only when you send it. Apart from fetching music, AETHER makes five kinds of request. Each can be turned off, in Settings or, for a song's video, with the video key on Now Playing, and none says anything about you.
 
 | For | Asks | Sends |
 |---|---|---|
 | Timed lyrics | lrc.red, BiniLyrics, BetterLyrics, LyricsPlus, Unison, LRCLIB and KuGou, each one switchable | A song's title, artist, album and length |
 | Artist and album art | Apple's public pages | An artist's name and an album's title |
 | Song video | Apple's public pages | A song's title and artist |
+| Song video, the community's covers | The community's index of looping covers | Nothing: the whole list is fetched and matched on the phone |
 | Updates | GitHub's list of AETHER's releases | Nothing: it reads the newest release's number |
+
+Playing on a TV uses Google Cast, through Google Play services on the phone. The TV opens Google's own player and fetches the song's cover itself; the song goes from your phone to the TV over your Wi-Fi.
 
 ## Principles
 

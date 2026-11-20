@@ -82,6 +82,21 @@ fun SettingsScreen() {
     val container = LocalContainer.current
     val settings = container.settings
     val scope = rememberCoroutineScope()
+    var importing by remember { mutableStateOf(false) }
+    // Every playlist and the liked songs in one AETHER file, wherever the listener puts it.
+    val notes = LocalActions.current.keep
+    val exportAll = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch {
+            val n = container.transfer.exportAll(uri)
+            notes.note(
+                when (n) {
+                    null -> "The file couldn't be written"
+                    1 -> "Your playlist and liked songs written out"
+                    else -> "$n playlists and your liked songs written out"
+                },
+            )
+        }
+    }
     val haptics by settings.haptics.collectAsStateWithLifecycle()
     val reduce by settings.reduceMotion.collectAsStateWithLifecycle()
     val efficient by settings.efficient.collectAsStateWithLifecycle()
@@ -91,8 +106,10 @@ fun SettingsScreen() {
     val artistArt by settings.artistArt.collectAsStateWithLifecycle()
     val lyricsStyle by settings.lyricsStyle.collectAsStateWithLifecycle()
     val crossfade by settings.crossfade.collectAsStateWithLifecycle()
+    val automix by settings.automix.collectAsStateWithLifecycle()
     val fullScreen by settings.fullScreen.collectAsStateWithLifecycle()
     val songVideo by settings.songVideo.collectAsStateWithLifecycle()
+    val castLyrics by settings.castLyrics.collectAsStateWithLifecycle()
     val romanise by settings.romanise.collectAsStateWithLifecycle()
     val sourcesOff by settings.lyricsSourcesOff.collectAsStateWithLifecycle()
     val eqShaping by container.equaliser.shaping.collectAsStateWithLifecycle()
@@ -221,6 +238,11 @@ fun SettingsScreen() {
                     selected = CrossfadeRules.Choices.indexOf(crossfade).coerceAtLeast(0),
                     onSelect = { settings.setCrossfade(CrossfadeRules.Choices[it]) },
                 )
+                Toggle(
+                    "Automix",
+                    "Each song is listened to first, on the phone: its tempo, beats and bars, its phrases, its key, where the voice is. Then one runs into the next as a DJ would: on the bar, the next song's tempo matched to this one's, the bass handed over, a filter or an echo where it suits, and long only between keys that sit together. A pair that can't be mixed crossfades instead, for the length above or six seconds when that's off. To be measured a song is fetched whole, the next one while this one plays, and then played from what was fetched. Never between an album's songs that run into each other, nor while a DAC plays bit-perfect.",
+                    automix,
+                ) { settings.setAutomix(!automix) }
                 Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Words(
                         "Equaliser",
@@ -281,9 +303,15 @@ fun SettingsScreen() {
                     "Lyrics in another script are given in Latin letters too: Korean as it's said, Chinese in pinyin, Japanese where it's in kana, and the rest. Worked out on the phone; nothing is sent. The Latin key on the lyrics turns it off and on.",
                     romanise,
                 ) { settings.setRomanise(!romanise) }
+                // Only for a TV that shows AETHER's own screen: Google's standard player shows no words.
+                if (app.aether.cast.CastOptions.ownReceiver(context)) Toggle(
+                    "Lyrics on the TV",
+                    "Casting to a TV that shows AETHER's own screen, the words come up full screen there with the song, as they're sung, the song's name above them and where the words are from below. Off, the TV opens on the song. Either way, the OK key on the TV's remote turns them on and off.",
+                    castLyrics,
+                ) { settings.setCastLyrics(!castLyrics) }
                 Toggle(
                     "Song video",
-                    "A song's cover gives way to its short film, in colour, for the albums Apple Music has one for, once it has loaded at its best; a music video plays as itself, in step with the music. The video key on Now Playing switches it too. Not loaded on a slow connection or the data saver. Asking Apple sends the song's title and artist; nothing else. A song's film needs Artist and album art.",
+                    "A song's cover gives way to its short film, in colour, looping, once it has loaded at its best: Apple Music's, for the albums it has one for (with Artist and album art on; asking Apple sends the song's title and artist, nothing else), or one from the community's index of looping covers (a list of a few hundred songs, fetched whole and matched on the phone: nothing about what you play is sent). A music video plays as itself, in step with the music. The video key on Now Playing switches it too. Not loaded on a slow connection or the data saver.",
                     songVideo,
                 ) { settings.setSongVideo(!songVideo) }
                 Choice(
@@ -306,6 +334,19 @@ fun SettingsScreen() {
         }
         item {
             Section("VIII", "Your data") {
+                Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Words(
+                        "Your playlists",
+                        "Bring playlists in from a file or a public playlist's link (Spotify, Apple Music, M3U, CSV, AETHER's own), or keep every one of yours, and your liked songs, in one AETHER file. Nothing is ever doubled.",
+                        Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlassPill("Import", small = true, onClick = { importing = true })
+                        GlassPill("Export", small = true, onClick = { exportAll.launch(container.transfer.allFileName()) })
+                    }
+                }
+                Rule()
                 Erase("Listening history", "Everything you've played, gone from this phone.") { scope.launch { container.library.clearHistory() } }
                 Erase("Recent searches", "What you've looked for on Discover.") { scope.launch { container.library.clearSearches() } }
             }
@@ -333,7 +374,7 @@ fun SettingsScreen() {
         }
         item {
             Section("X", "Privacy") {
-                Paragraph("AETHER has no analytics and no accounts. Your likes, playlists and history stay on this phone. The only requests it makes are the ones that load pages and play music, and, if you leave them on, the ones for timed lyrics, song video, artist and album art, and a newer AETHER. The music on the phone is read on the phone.")
+                Paragraph("AETHER has no analytics and no accounts. Your likes, playlists and history stay on this phone. The only requests it makes are the ones that load pages and play music; if you leave them on, the ones for timed lyrics, song video, artist and album art, and a newer AETHER; and, when you paste a playlist's link to bring it in, the one for that playlist's public page, asked for as AETHER. The music on the phone is read on the phone.")
             }
         }
         item {
@@ -363,6 +404,7 @@ fun SettingsScreen() {
         }
         item(key = "colophon") { Colophon() }
     }
+    if (importing) app.aether.ui.library.ImportPane(onClose = { importing = false })
     if (adding) NameDialog("Source address", "https://", onDone = { typed ->
         adding = false
         val address = typed.trim()
